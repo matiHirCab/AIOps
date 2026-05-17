@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "skills": {
+    "azure-kubernetes": {
+      "source": "microsoft/azure-skills",
+      "sourceType": "github",
+      "skillPath": "skills/azure-kubernetes/SKILL.md",
+      "computedHash": "ec592ebd1f434fa8c879e95fe2cf348a026941f9ec7177f847cf4b5ae310b67b"
+    },
+    "kubernetes": {
+      "source": "mindrally/skills",
+      "sourceType": "github",
+      "skillPath": "kubernetes/SKILL.md",
+      "computedHash": "a6bb9e80f26e842ac8052abd6c677dd6ee8e25dc37e9cea825f42adfdb15aaae"
+    },
+    "kubernetes-specialist": {
+      "source": "jeffallan/claude-skills",
+      "sourceType": "github",
+      "skillPath": "skills/kubernetes-specialist/SKILL.md",
+      "computedHash": "7a8183bfb9230dc6800b911470d0ac8b8aefe77518f74f75b268e6f49afa58da"
+    }
+  }
+}
