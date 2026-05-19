@@ -5,6 +5,8 @@ skinparam defaultFontSize 11
 skinparam rectangleBorderThickness 2
 skinparam nodeBorderThickness 2
 skinparam linetype ortho
+skinparam nodesep 60
+skinparam ranksep 40
 
 title **Diagrama de Despliegue - PharmaGo sobre Kubernetes**\nNamespace: pharmago
 
@@ -59,17 +61,13 @@ pharmacy --> db : "TCP :1433"
 users -[dashed]-> pharmacy : "HTTP :80"
 pharmacy -[dashed]-> users : "HTTP :80"
 
-' --- Telemetría ---
-apigw -[#E65100,dotted]-> otel : "gRPC :4317 (OTLP)"
-users -[#E65100,dotted]-> otel : "gRPC :4317 (OTLP)"
-pharmacy -[#E65100,dotted]-> otel : "gRPC :4317 (OTLP)"
+' --- Telemetría (agrupada) ---
+backendNode -[#E65100,dotted]-> otel : "gRPC :4317\n(OTLP métricas)"
 
-' --- Recolección de métricas ---
+' --- Recolección de métricas (agrupada) ---
 prom -[#C62828,dotted]-> otel : "scrape :8889"
 prom -[#C62828,dotted]-> nodeexp : "scrape :9100"
-prom -[#C62828,dotted]-> apigw : "scrape /metrics"
-prom -[#C62828,dotted]-> users : "scrape /metrics"
-prom -[#C62828,dotted]-> pharmacy : "scrape /metrics"
+prom -[#C62828,dotted]-> backendNode : "scrape /metrics\n(:80)"
 grafana --> prom : "HTTP :9090"
 
 ' --- Logs ---
