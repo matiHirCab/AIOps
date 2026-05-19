@@ -69,6 +69,9 @@
 ### Dashboard Grafana - Infra
 ![Dashboard Grafana - Infra](imagenes/grafana-infra-dashboard.png)
 
+### Kibana - Discover (logs estructurados)
+![Kibana - Discover](imagenes/kibana-discover.png)
+
 ## Alertas en Grafana (minimo 5)
 
 | # | Alerta | Estado |
