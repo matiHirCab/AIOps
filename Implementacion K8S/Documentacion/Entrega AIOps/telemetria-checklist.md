@@ -72,6 +72,9 @@
 ### Kibana - Discover (logs estructurados)
 ![Kibana - Discover](imagenes/kibana-discover.png)
 
+### Prometheus - Query (container_cpu_usage_seconds_total)
+![Prometheus - Query](imagenes/prometheus-query.png)
+
 ## Alertas en Grafana (minimo 5)
 
 | # | Alerta | Estado |
