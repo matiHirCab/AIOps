@@ -33,23 +33,23 @@
 
 ## Metricas de infraestructura - nodo (minimo 5)
 
-| # | Metrica | Fuente | Estado |
-|---|---|---|---|
-| 1 | CPU usage % | Node Exporter | OK |
-| 2 | Memory usage % | Node Exporter | OK |
-| 3 | Disk available % | Node Exporter | OK |
-| 4 | Filesystem stats | Node Exporter | OK |
-| 5 | Network stats | Node Exporter | OK |
+| # | Metrica | Query PromQL | Fuente | Dashboard |
+|---|---|---|---|---|
+| 1 | CPU usage % | `100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)` | Node Exporter | Ya en dashboard |
+| 2 | Memoria usada % | `(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100` | Node Exporter | Ya en dashboard |
+| 3 | Disco disponible % | `(node_filesystem_avail_bytes{fstype!~"tmpfs\|overlay"} / node_filesystem_size_bytes) * 100` | Node Exporter | Ya en dashboard |
+| 4 | Red recibida/enviada | `rate(node_network_receive_bytes_total[5m])` / `rate(node_network_transmit_bytes_total[5m])` | Node Exporter | Por agregar |
+| 5 | I/O disco | `rate(node_disk_read_bytes_total[5m])` / `rate(node_disk_written_bytes_total[5m])` | Node Exporter | Por agregar |
 
 ## Metricas de infraestructura - pod/contenedor (minimo 5)
 
-| # | Metrica | Fuente | Estado |
-|---|---|---|---|
-| 1 | CPU por pod | cAdvisor (kubernetes-cadvisor) | OK |
-| 2 | Memory por pod | cAdvisor (kubernetes-cadvisor) | OK |
-| 3 | Network rx/tx por pod | cAdvisor (kubernetes-cadvisor) | OK |
-| 4 | Filesystem usage por pod | cAdvisor (kubernetes-cadvisor) | OK |
-| 5 | Container restarts | cAdvisor (kubernetes-cadvisor) | OK |
+| # | Metrica | Query PromQL | Fuente | Dashboard |
+|---|---|---|---|---|
+| 1 | CPU por pod | `sum by (pod) (rate(container_cpu_usage_seconds_total{namespace="pharmago"}[5m])) * 100` | cAdvisor | Ya en dashboard |
+| 2 | Memoria por pod | `sum by (pod) (container_memory_working_set_bytes{namespace="pharmago"})` | cAdvisor | Ya en dashboard |
+| 3 | Red rx/tx por pod | `sum by (pod) (rate(container_network_receive_bytes_total{namespace="pharmago"}[5m]))` | cAdvisor | Por agregar |
+| 4 | Storage por pod | `sum by (pod) (container_fs_usage_bytes{namespace="pharmago"})` | cAdvisor | Por agregar |
+| 5 | Restarts por contenedor | `sum by (pod) (kube_pod_container_status_restarts_total{namespace="pharmago"})` | kube-state-metrics | Por agregar |
 
 ## Recoleccion y visualizacion
 
