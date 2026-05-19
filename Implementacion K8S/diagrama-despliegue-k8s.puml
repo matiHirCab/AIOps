@@ -5,6 +5,7 @@ skinparam defaultFontSize 11
 skinparam rectangleBorderThickness 2
 skinparam nodeBorderThickness 2
 skinparam componentStyle rectangle
+skinparam linetype ortho
 
 title **Diagrama de Despliegue - PharmaGo sobre Kubernetes**\nNamespace: pharmago
 
