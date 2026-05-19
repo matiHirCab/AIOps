@@ -1,0 +1,96 @@
+@startuml Diagrama de Despliegue - PharmaGo K8s
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontSize 11
+skinparam rectangleBorderThickness 2
+skinparam nodeBorderThickness 2
+skinparam linetype ortho
+
+title **Diagrama de Despliegue - PharmaGo sobre Kubernetes**\nNamespace: pharmago
+
+node "<<Kubernetes Cluster>>\nPharmaGo" as cluster {
+
+  ' ============================================================
+  ' NODO FRONTEND
+  ' ============================================================
+  node "<<K8s Node>>\nnode-type: frontend" as frontendNode #D5F5D5 {
+    rectangle "<<Deployment>>\n**pharmago-ui**\nAngular App" as ui #C8E6C9
+  }
+
+  ' ============================================================
+  ' NODO BACKEND
+  ' ============================================================
+  node "<<K8s Node>>\nnode-type: backend" as backendNode #D6E4F0 {
+    rectangle "<<Deployment>>\n**pharmago-api-gateway**\nASP.NET Core + YARP" as apigw #BBDEFB
+    rectangle "<<Deployment>>\n**pharmago-users-service**\nASP.NET Core" as users #BBDEFB
+    rectangle "<<Deployment>>\n**pharmago-pharmacy-service**\nASP.NET Core" as pharmacy #BBDEFB
+  }
+
+  ' ============================================================
+  ' NODO OPS
+  ' ============================================================
+  node "<<K8s Node>>\nnode-type: ops" as opsNode #FCE4EC {
+    rectangle "<<Deployment>>\n**pharmago-db**\nMSSQL 2019 Express\nPV: 10Gi" as db #F8BBD0
+    rectangle "<<Deployment>>\n**elasticsearch**\nPV: 10Gi" as elastic #F8BBD0
+    rectangle "<<Deployment>>\n**kibana**" as kibana #F8BBD0
+    rectangle "<<Deployment>>\n**prometheus**\nPV: 10Gi" as prom #F8BBD0
+    rectangle "<<Deployment>>\n**grafana**\nPV: 5Gi" as grafana #F8BBD0
+    rectangle "<<Deployment>>\n**otlp-collector**" as otel #F8BBD0
+  }
+
+  ' ============================================================
+  ' DAEMONSETS (todos los nodos)
+  ' ============================================================
+  node "<<Todos los nodos>>" as allNodes #FFF9C4 {
+    rectangle "<<DaemonSet>>\n**fluent-bit**" as fluentbit #FFF176
+    rectangle "<<DaemonSet>>\n**node-exporter**" as nodeexp #FFF176
+  }
+}
+
+actor "Usuario" as user
+
+' --- Tráfico de aplicación ---
+user --> ui : "NodePort :80"
+ui --> apigw : "HTTP :80"
+apigw --> users : "HTTP :80\n(YARP)"
+apigw --> pharmacy : "HTTP :80\n(YARP)"
+users --> db : "TCP :1433"
+pharmacy --> db : "TCP :1433"
+users -[dashed]-> pharmacy : "HTTP :80"
+pharmacy -[dashed]-> users : "HTTP :80"
+
+' --- Telemetría ---
+apigw -[#E65100,dotted]-> otel : "gRPC :4317 (OTLP)"
+users -[#E65100,dotted]-> otel : "gRPC :4317 (OTLP)"
+pharmacy -[#E65100,dotted]-> otel : "gRPC :4317 (OTLP)"
+
+' --- Recolección de métricas ---
+prom -[#C62828,dotted]-> otel : "scrape :8889"
+prom -[#C62828,dotted]-> nodeexp : "scrape :9100"
+prom -[#C62828,dotted]-> apigw : "scrape /metrics"
+prom -[#C62828,dotted]-> users : "scrape /metrics"
+prom -[#C62828,dotted]-> pharmacy : "scrape /metrics"
+grafana --> prom : "HTTP :9090"
+
+' --- Logs ---
+fluentbit -[#F57F17,dotted]-> elastic : "HTTP :9200"
+kibana --> elastic : "HTTP :9200"
+
+' --- Acceso externo (NodePort) ---
+user --> grafana : "NodePort :3000"
+user --> kibana : "NodePort :5601"
+
+legend bottom left
+  |= Color |= Significado |
+  | <#D5F5D5> | Nodo Frontend |
+  | <#D6E4F0> | Nodo Backend |
+  | <#FCE4EC> | Nodo Ops |
+  | <#FFF9C4> | DaemonSets (todos los nodos) |
+  |= Línea |= Protocolo |
+  | ── | Tráfico de aplicación (HTTP/TCP) |
+  | <color:#E65100>╌╌</color> | OTLP (telemetría) |
+  | <color:#C62828>╌╌</color> | Prometheus scrape |
+  | <color:#F57F17>╌╌</color> | Logs (Fluent Bit → ES) |
+endlegend
+
+@enduml
