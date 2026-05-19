@@ -63,6 +63,12 @@
 | Logs en Elasticsearch | OK | Elasticsearch 8.11, indices `pharmago-logs-YYYY.MM.DD` |
 | Logs consultables en Kibana | OK | Kibana 8.11, data view `pharmago-logs-*` |
 
+### Dashboard Grafana - Overview
+![Dashboard Grafana - Overview](imagenes/grafana-overview-dashboard.png)
+
+### Dashboard Grafana - Infra
+![Dashboard Grafana - Infra](imagenes/grafana-infra-dashboard.png)
+
 ## Alertas en Grafana (minimo 5)
 
 | # | Alerta | Estado |
