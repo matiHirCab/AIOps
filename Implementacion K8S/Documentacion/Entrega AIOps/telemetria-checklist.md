@@ -89,6 +89,12 @@
 
 Provisionadas via ConfigMap (`grafana-alerting.yaml`) en `/etc/grafana/provisioning/alerting/`.
 
+### Grafana - Carpeta de alertas
+![Grafana - Carpeta de alertas](imagenes/grafana-alerting-dashboards.png)
+
+### Grafana - Alert rules (5 normal)
+![Grafana - Alert rules](imagenes/grafana-alerting-rules.png)
+
 ## Resumen
 
 | Categoria | Estado |
