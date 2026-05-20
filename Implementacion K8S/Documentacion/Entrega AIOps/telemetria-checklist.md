@@ -38,8 +38,8 @@
 | 1 | CPU usage % | `100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)` | Node Exporter | Ya en dashboard |
 | 2 | Memoria usada % | `(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100` | Node Exporter | Ya en dashboard |
 | 3 | Disco disponible % | `(node_filesystem_avail_bytes{fstype!~"tmpfs\|overlay"} / node_filesystem_size_bytes) * 100` | Node Exporter | Ya en dashboard |
-| 4 | Red recibida/enviada | `rate(node_network_receive_bytes_total[5m])` / `rate(node_network_transmit_bytes_total[5m])` | Node Exporter | Por agregar |
-| 5 | I/O disco | `rate(node_disk_read_bytes_total[5m])` / `rate(node_disk_written_bytes_total[5m])` | Node Exporter | Por agregar |
+| 4 | Red recibida/enviada | `rate(node_network_receive_bytes_total[5m])` / `rate(node_network_transmit_bytes_total[5m])` | Node Exporter | Ya en dashboard |
+| 5 | I/O disco | `rate(node_disk_read_bytes_total[5m])` / `rate(node_disk_written_bytes_total[5m])` | Node Exporter | Ya en dashboard |
 
 ## Metricas de infraestructura - pod/contenedor (minimo 5)
 
@@ -56,10 +56,10 @@
 | Requerimiento | Estado | Detalle |
 |---|---|---|
 | Metricas recolectadas con OTLP | OK | Servicios exportan via OTLP gRPC al collector, que expone en :8889 |
-| Prometheus scraping | OK | Scrape cada 5s a: otel-collector, 3 servicios, node-exporter, cadvisor |
+| Prometheus scraping | OK | Scrape cada 5s a: otel-collector, 3 servicios, node-exporter, cadvisor, kube-state-metrics |
 | Retencion Prometheus | OK | 30 dias |
 | Dashboard Grafana - aplicacion | OK | `pharmago-overview.json`: requests/s, latencia, error rate, throughput, 429s, status codes |
-| Dashboard Grafana - infra | OK | `pharmago-infra.json`: CPU nodo, memoria nodo, disco, CPU/memoria por pod |
+| Dashboard Grafana - infra | OK | `pharmago-infra.json`: CPU/memoria/disco/red/IO nodo, CPU/memoria por pod, pod restarts, pods ready |
 | Logs en Elasticsearch | OK | Elasticsearch 8.11, indices `pharmago-logs-YYYY.MM.DD` |
 | Logs consultables en Kibana | OK | Kibana 8.11, data view `pharmago-logs-*` |
 
@@ -93,7 +93,7 @@
 | Trazas OTLP | PARCIAL - falta pipeline de traces en collector |
 | Metricas aplicacion (5+) | OK (6 metricas) |
 | Metricas infra nodo (5+) | OK (Node Exporter) |
-| Metricas infra pod (5+) | OK (cAdvisor) |
+| Metricas infra pod (5+) | OK (cAdvisor + kube-state-metrics) |
 | OTLP -> Prometheus -> Grafana | OK |
 | Logs en Kibana + ES | OK |
 | 5 alertas en Grafana | FALTA |
