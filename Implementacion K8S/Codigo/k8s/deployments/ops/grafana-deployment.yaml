@@ -81,6 +81,12 @@ spec:
         - name: grafana-dashboard-infra
           mountPath: /etc/grafana/provisioning/dashboards/pharmago-infra.json
           subPath: pharmago-infra.json
+        - name: grafana-provisioning
+          mountPath: /etc/grafana/provisioning/alerting/alerting.yml
+          subPath: alerting.yml
+        - name: grafana-alerting
+          mountPath: /etc/grafana/provisioning/alerting/rules.yml
+          subPath: alerting.yml
         resources:
           requests:
             memory: "256Mi"
@@ -122,4 +128,7 @@ spec:
       - name: grafana-dashboard-infra
         configMap:
           name: grafana-dashboard-infra
+      - name: grafana-alerting
+        configMap:
+          name: grafana-alerting
 

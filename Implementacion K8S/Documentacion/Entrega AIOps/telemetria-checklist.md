@@ -79,7 +79,15 @@
 
 ## Alertas en Grafana (minimo 5)
 
-Pendiente de implementacion.
+| # | Alerta | Query | Umbral | Severidad |
+|---|---|---|---|---|
+| 1 | CPU nodo > 80% | `100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)` | > 80% por 2min | warning |
+| 2 | Memoria nodo > 85% | `(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100` | > 85% por 2min | warning |
+| 3 | Pod restarts > 3 en 5min | `increase(kube_pod_container_status_restarts_total{namespace="pharmago"}[5m])` | > 3 inmediato | critical |
+| 4 | Error rate HTTP > 5% | `sum(rate(pharmago_http_errors_total[5m])) / sum(rate(pharmago_http_requests_total[5m])) * 100` | > 5% por 1min | critical |
+| 5 | Latencia promedio > 500ms | `sum(rate(pharmago_http_request_duration_milliseconds_sum[5m])) / sum(rate(..._count[5m]))` | > 500ms por 2min | warning |
+
+Provisionadas via ConfigMap (`grafana-alerting.yaml`) en `/etc/grafana/provisioning/alerting/`.
 
 ## Resumen
 
@@ -92,4 +100,4 @@ Pendiente de implementacion.
 | Metricas infra pod (5+) | OK (cAdvisor + kube-state-metrics) |
 | OTLP -> Prometheus -> Grafana | OK |
 | Logs en Kibana + ES | OK |
-| 5 alertas en Grafana | FALTA |
+| 5 alertas en Grafana | OK (5 alertas provisionadas) |
