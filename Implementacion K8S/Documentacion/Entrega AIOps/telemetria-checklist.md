@@ -1,5 +1,7 @@
 # Telemetria - Checklist de requerimientos
 
+> **NOTA:** Al agregar componentes de telemetria (kube-state-metrics, Jaeger/Tempo, etc.) recordar actualizar el diagrama de despliegue (`diagrama-despliegue-k8s.puml`) para reflejar los nuevos componentes y sus conexiones.
+
 ## Logs estructurados en JSON
 
 | Requerimiento | Estado | Detalle |
@@ -9,6 +11,9 @@
 | Eventos de negocio con tokens | OK | Tokens como `EVTLGOK` (login), `EVTPUCR` (purchase), etc. |
 | Recoleccion de logs | OK | Fluent Bit como DaemonSet, parsea JSON de .NET y envia a Elasticsearch |
 | Consulta de logs en Kibana | OK | Index pattern `pharmago-logs-*`, campos buscables via KQL |
+
+### Kibana - Discover (logs estructurados)
+![Kibana - Discover](imagenes/kibana-discover.png)
 
 ## Trazas OTLP
 
@@ -31,6 +36,9 @@
 | 5 | `pharmago_http_request_duration_milliseconds` | Histogram (endpoint/method) | OK |
 | 6 | `active_user_count` | Gauge | OK |
 
+### Dashboard Grafana - Overview
+![Dashboard Grafana - Overview](imagenes/grafana-overview-dashboard.png)
+
 ## Metricas de infraestructura - nodo (minimo 5)
 
 | # | Metrica | Query PromQL | Fuente | Dashboard |
@@ -49,7 +57,10 @@
 | 2 | Memoria por pod | `sum by (pod) (container_memory_working_set_bytes{namespace="pharmago"})` | cAdvisor | Pre-existente |
 | 3 | Pod restarts | `increase(kube_pod_container_status_restarts_total{namespace="pharmago"}[5m])` | kube-state-metrics | Agregado (nuevo componente) |
 | 4 | Pods ready | `kube_pod_status_ready{namespace="pharmago",condition="true"}` | kube-state-metrics | Agregado (nuevo componente) |
-| 5 | Red rx/tx por pod | `sum by (pod) (rate(container_network_receive_bytes_total{namespace="pharmago"}[5m]))` | cAdvisor | Disponible en Prometheus |
+| 5 | Red rx/tx por pod | `sum by (pod) (rate(container_network_receive_bytes_total{namespace="pharmago"}[5m]))` | cAdvisor | Disponible en Prometheus, no en dashboard |
+
+### Dashboard Grafana - Infra
+![Dashboard Grafana - Infra](imagenes/grafana-infra-dashboard-v2.png)
 
 ## Recoleccion y visualizacion
 
@@ -63,27 +74,12 @@
 | Logs en Elasticsearch | OK | Elasticsearch 8.11, indices `pharmago-logs-YYYY.MM.DD` |
 | Logs consultables en Kibana | OK | Kibana 8.11, data view `pharmago-logs-*` |
 
-### Dashboard Grafana - Overview
-![Dashboard Grafana - Overview](imagenes/grafana-overview-dashboard.png)
-
-### Dashboard Grafana - Infra
-![Dashboard Grafana - Infra](imagenes/grafana-infra-dashboard-v2.png)
-
-### Kibana - Discover (logs estructurados)
-![Kibana - Discover](imagenes/kibana-discover.png)
-
-### Prometheus - Query (container_cpu_usage_seconds_total)
+### Prometheus - Query
 ![Prometheus - Query](imagenes/prometheus-query.png)
 
 ## Alertas en Grafana (minimo 5)
 
-| # | Alerta | Estado |
-|---|---|---|
-| 1 | - | FALTA |
-| 2 | - | FALTA |
-| 3 | - | FALTA |
-| 4 | - | FALTA |
-| 5 | - | FALTA |
+Pendiente de implementacion.
 
 ## Resumen
 
