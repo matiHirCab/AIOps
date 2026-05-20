@@ -47,9 +47,9 @@
 |---|---|---|---|---|
 | 1 | CPU por pod | `sum by (pod) (rate(container_cpu_usage_seconds_total{namespace="pharmago"}[5m])) * 100` | cAdvisor | Ya en dashboard |
 | 2 | Memoria por pod | `sum by (pod) (container_memory_working_set_bytes{namespace="pharmago"})` | cAdvisor | Ya en dashboard |
-| 3 | Red rx/tx por pod | `sum by (pod) (rate(container_network_receive_bytes_total{namespace="pharmago"}[5m]))` | cAdvisor | Por agregar |
-| 4 | Storage por pod | `sum by (pod) (container_fs_usage_bytes{namespace="pharmago"})` | cAdvisor | Por agregar |
-| 5 | Restarts por contenedor | `sum by (pod) (kube_pod_container_status_restarts_total{namespace="pharmago"})` | kube-state-metrics | Por agregar |
+| 3 | Pod restarts | `increase(kube_pod_container_status_restarts_total{namespace="pharmago"}[5m])` | kube-state-metrics | Ya en dashboard |
+| 4 | Pods ready | `kube_pod_status_ready{namespace="pharmago",condition="true"}` | kube-state-metrics | Ya en dashboard |
+| 5 | Red rx/tx por pod | `sum by (pod) (rate(container_network_receive_bytes_total{namespace="pharmago"}[5m]))` | cAdvisor | Disponible en Prometheus |
 
 ## Recoleccion y visualizacion
 
@@ -67,7 +67,7 @@
 ![Dashboard Grafana - Overview](imagenes/grafana-overview-dashboard.png)
 
 ### Dashboard Grafana - Infra
-![Dashboard Grafana - Infra](imagenes/grafana-infra-dashboard.png)
+![Dashboard Grafana - Infra](imagenes/grafana-infra-dashboard-v2.png)
 
 ### Kibana - Discover (logs estructurados)
 ![Kibana - Discover](imagenes/kibana-discover.png)
