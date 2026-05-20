@@ -35,20 +35,20 @@
 
 | # | Metrica | Query PromQL | Fuente | Dashboard |
 |---|---|---|---|---|
-| 1 | CPU usage % | `100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)` | Node Exporter | Ya en dashboard |
-| 2 | Memoria usada % | `(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100` | Node Exporter | Ya en dashboard |
-| 3 | Disco disponible % | `(node_filesystem_avail_bytes{fstype!~"tmpfs\|overlay"} / node_filesystem_size_bytes) * 100` | Node Exporter | Ya en dashboard |
-| 4 | Red recibida/enviada | `rate(node_network_receive_bytes_total[5m])` / `rate(node_network_transmit_bytes_total[5m])` | Node Exporter | Ya en dashboard |
-| 5 | I/O disco | `rate(node_disk_read_bytes_total[5m])` / `rate(node_disk_written_bytes_total[5m])` | Node Exporter | Ya en dashboard |
+| 1 | CPU usage % | `100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)` | Node Exporter | Pre-existente |
+| 2 | Memoria usada % | `(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100` | Node Exporter | Pre-existente |
+| 3 | Disco disponible % | `(node_filesystem_avail_bytes{fstype!~"tmpfs\|overlay"} / node_filesystem_size_bytes) * 100` | Node Exporter | Pre-existente |
+| 4 | Red recibida/enviada | `rate(node_network_receive_bytes_total[5m])` / `rate(node_network_transmit_bytes_total[5m])` | Node Exporter | Agregado |
+| 5 | I/O disco | `rate(node_disk_read_bytes_total[5m])` / `rate(node_disk_written_bytes_total[5m])` | Node Exporter | Agregado |
 
 ## Metricas de infraestructura - pod/contenedor (minimo 5)
 
 | # | Metrica | Query PromQL | Fuente | Dashboard |
 |---|---|---|---|---|
-| 1 | CPU por pod | `sum by (pod) (rate(container_cpu_usage_seconds_total{namespace="pharmago"}[5m])) * 100` | cAdvisor | Ya en dashboard |
-| 2 | Memoria por pod | `sum by (pod) (container_memory_working_set_bytes{namespace="pharmago"})` | cAdvisor | Ya en dashboard |
-| 3 | Pod restarts | `increase(kube_pod_container_status_restarts_total{namespace="pharmago"}[5m])` | kube-state-metrics | Ya en dashboard |
-| 4 | Pods ready | `kube_pod_status_ready{namespace="pharmago",condition="true"}` | kube-state-metrics | Ya en dashboard |
+| 1 | CPU por pod | `sum by (pod) (rate(container_cpu_usage_seconds_total{namespace="pharmago"}[5m])) * 100` | cAdvisor | Pre-existente |
+| 2 | Memoria por pod | `sum by (pod) (container_memory_working_set_bytes{namespace="pharmago"})` | cAdvisor | Pre-existente |
+| 3 | Pod restarts | `increase(kube_pod_container_status_restarts_total{namespace="pharmago"}[5m])` | kube-state-metrics | Agregado (nuevo componente) |
+| 4 | Pods ready | `kube_pod_status_ready{namespace="pharmago",condition="true"}` | kube-state-metrics | Agregado (nuevo componente) |
 | 5 | Red rx/tx por pod | `sum by (pod) (rate(container_network_receive_bytes_total{namespace="pharmago"}[5m]))` | cAdvisor | Disponible en Prometheus |
 
 ## Recoleccion y visualizacion
