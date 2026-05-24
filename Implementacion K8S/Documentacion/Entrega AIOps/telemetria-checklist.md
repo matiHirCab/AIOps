@@ -22,8 +22,10 @@
 | Propagacion de contexto | OK | `X-Correlation-ID` generado en API Gateway y propagado a servicios via YARP |
 | Correlation ID en logs | OK | Incluido como campo `correlation_id` en todos los logs JSON |
 | OTLP Collector recibe telemetria | OK | gRPC en puerto 4317 |
-| Pipeline de traces en collector | FALTA | El collector solo tiene pipeline de metricas, no exporta traces a ningun backend |
-| Backend de traces (Jaeger/Zipkin) | FALTA | No hay componente desplegado para almacenar/visualizar traces |
+| Pipeline de traces en collector | OK | Collector tiene pipeline `traces` con receivers: [otlp], exporters: [otlp/jaeger, debug] |
+| Backend de traces (Jaeger) | OK | Jaeger all-in-one (v1.54) desplegado, recibe traces via OTLP gRPC desde el collector |
+| Traces visibles en Jaeger UI | OK | 3 servicios reportan traces: ApiGateway, PharmacyService, UsersService (puerto 16686) |
+| Propagacion cross-service | OK | Traces muestran spans multi-servicio (Gateway -> PharmacyService) con context propagation |
 
 ## Metricas de aplicacion (minimo 5)
 
@@ -100,7 +102,7 @@ Provisionadas via ConfigMap (`grafana-alerting.yaml`) en `/etc/grafana/provision
 | Categoria | Estado |
 |---|---|
 | Logs estructurados JSON | OK |
-| Trazas OTLP | PARCIAL - falta pipeline de traces en collector |
+| Trazas OTLP | OK (Jaeger + collector pipeline + cross-service propagation) |
 | Metricas aplicacion (5+) | OK (6 metricas) |
 | Metricas infra nodo (5+) | OK (Node Exporter) |
 | Metricas infra pod (5+) | OK (cAdvisor + kube-state-metrics) |
