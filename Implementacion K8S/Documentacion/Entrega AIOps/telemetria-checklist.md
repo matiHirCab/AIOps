@@ -1,5 +1,7 @@
 # Telemetria - Checklist de requerimientos
 
+> Resumen narrativo del requerimiento 4 (qué pedía, qué teníamos, qué agregamos, cómo probar): [`telemetria-req-4-resumen.md`](telemetria-req-4-resumen.md)
+
 > **NOTA:** Al agregar componentes de telemetria (kube-state-metrics, Jaeger/Tempo, etc.) recordar actualizar el diagrama de despliegue (`diagrama-despliegue-k8s.puml`) para reflejar los nuevos componentes y sus conexiones.
 
 ## Logs estructurados en JSON
