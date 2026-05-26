@@ -40,6 +40,7 @@ builder.Services.AddReverseProxy()
     });
 
 builder.Services.AddSingleton<ICustomMetrics, CustomMetrics>();
+builder.Services.AddHealthChecks();
 
 builder.Services.AddOpenTelemetry()
     .WithMetrics(metricsBuilder => 
@@ -90,6 +91,7 @@ else if (rateLimitMode.Equals("User", StringComparison.OrdinalIgnoreCase))
 
 app.UseAuthorization();
 
+app.MapHealthChecks("/health");
 app.MapReverseProxy();
 app.MapPrometheusScrapingEndpoint();
 
