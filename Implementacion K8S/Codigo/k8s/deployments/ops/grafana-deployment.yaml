@@ -27,6 +27,13 @@ spec:
       - name: wait-for-prometheus
         image: busybox:1.36
         command: ['sh', '-c', 'until wget -q -O- http://prometheus:9090/-/healthy; do echo "Waiting for Prometheus..."; sleep 5; done; echo "Prometheus ready"']
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "25m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
       - name: volume-permissions
         image: busybox:1.36
         command: ['sh', '-c']
@@ -39,6 +46,13 @@ spec:
         volumeMounts:
         - name: grafana-storage
           mountPath: /var/lib/grafana
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "25m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
       containers:
       - name: grafana
         image: grafana/grafana:10.4.2

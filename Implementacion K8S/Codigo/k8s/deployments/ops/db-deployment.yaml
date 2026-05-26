@@ -39,6 +39,13 @@ spec:
         volumeMounts:
         - name: sql-storage
           mountPath: /var/opt/mssql
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "25m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
       containers:
       - name: pharmago-db
         image: mcr.microsoft.com/mssql/server:2019-latest

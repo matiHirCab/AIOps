@@ -40,6 +40,13 @@ spec:
         volumeMounts:
         - name: prometheus-storage
           mountPath: /prometheus
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "25m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
       containers:
       - name: prometheus
         image: prom/prometheus:latest

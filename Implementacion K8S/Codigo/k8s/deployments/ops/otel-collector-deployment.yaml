@@ -35,6 +35,13 @@ spec:
         - name: otel-config
           mountPath: /etc/otel-collector-config.yaml
           subPath: otel-collector-config.yaml
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "250m"
       volumes:
       - name: otel-config
         configMap:

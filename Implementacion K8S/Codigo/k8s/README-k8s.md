@@ -13,6 +13,16 @@ La aplicación se ejecuta en un único nodo (minikube) con todos los componentes
 
 **Requisito de memoria**: El nodo debe tener al menos 5-6GB de RAM para soportar Elasticsearch (1.5Gi), Kibana (2Gi), SQL Server Express (1.5Gi) y el resto de servicios.
 
+## Limites de recursos
+
+Los contenedores tienen configurados resource requests y resource limits. Esta estrategia aplica a los servicios de aplicacion, la base de datos y los componentes de telemetria y observabilidad.
+
+Los requests permiten reservar una cantidad minima de CPU y memoria para cada servicio. Esto ayuda a Kubernetes a tomar decisiones de scheduling y evita desplegar pods en nodos que no cuentan con recursos suficientes.
+
+Los limits definen el consumo maximo permitido para cada contenedor. De esta forma se reduce el impacto de una falla o sobrecarga en un microservicio, evitando que un unico pod consuma todos los recursos disponibles del nodo.
+
+Esta estrategia ayuda a contener incidentes como consumo excesivo de CPU, consumo excesivo de memoria, degradacion del nodo e impacto sobre otros pods del cluster.
+
 ## Prerrequisitos
 
 1. **Minikube** instalado y configurado
