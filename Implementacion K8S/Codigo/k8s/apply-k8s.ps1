@@ -48,6 +48,7 @@ kubectl apply -f configmaps\otel-collector-config.yaml
 kubectl apply -f configmaps\grafana-provisioning.yaml
 kubectl apply -f configmaps\grafana-dashboards.yaml
 kubectl apply -f configmaps\grafana-dashboard-infra.yaml
+kubectl apply -f configmaps\grafana-alerting.yaml
 kubectl apply -f configmaps\fluent-bit-config.yaml
 if ($LASTEXITCODE -ne 0) { exit 1 }
 
@@ -114,9 +115,23 @@ if ($LASTEXITCODE -eq 0) {
     Write-Host "   Timeout esperando Elasticsearch. Continuando..." -ForegroundColor Yellow
 }
 
-# Resto de servicios ops
+# Jaeger (backend de trazas): debe estar antes del OTel collector,
+# que exporta trazas a jaeger:4317.
+kubectl apply -f services\ops\jaeger-service.yaml
+kubectl apply -f deployments\ops\jaeger-deployment.yaml
+Write-Host "   Jaeger desplegado (UI en puerto 16686)." -ForegroundColor Cyan
+
+# OTel collector
 kubectl apply -f services\ops\otel-collector-service.yaml
 kubectl apply -f deployments\ops\otel-collector-deployment.yaml
+
+# kube-state-metrics: métricas a nivel de pod/deployment (restarts, ready, ...).
+# Se aplica antes de Prometheus para que el job 'kube-state-metrics' tenga target.
+kubectl apply -f deployments\ops\kube-state-metrics-serviceaccount.yaml
+kubectl apply -f deployments\ops\kube-state-metrics-clusterrole.yaml
+kubectl apply -f deployments\ops\kube-state-metrics-clusterrolebinding.yaml
+kubectl apply -f deployments\ops\kube-state-metrics-deployment.yaml
+Write-Host "   kube-state-metrics desplegado (servicio en puerto 8080)." -ForegroundColor Cyan
 
 kubectl apply -f deployments\ops\prometheus-serviceaccount.yaml
 kubectl apply -f deployments\ops\prometheus-clusterrole.yaml
@@ -126,8 +141,14 @@ kubectl apply -f deployments\ops\prometheus-deployment.yaml
 kubectl apply -f services\ops\node-exporter-service.yaml
 kubectl apply -f deployments\ops\node-exporter-daemonset.yaml
 
+# Grafana: el ConfigMap grafana-alerting ya fue aplicado en el paso 4,
+# por lo que las reglas se montan al iniciar el pod.
 kubectl apply -f services\ops\grafana-service.yaml
 kubectl apply -f deployments\ops\grafana-deployment.yaml
+
+# Si Grafana ya estaba corriendo en un despliegue anterior, reiniciar para que
+# recargue las reglas de alerting provisionadas.
+kubectl rollout restart deployment/grafana -n pharmago 2>$null
 
 kubectl apply -f services\ops\kibana-service.yaml
 kubectl apply -f deployments\ops\kibana-deployment.yaml
@@ -161,4 +182,5 @@ Write-Host "  Frontend:     minikube service pharmago-ui -n pharmago --url" -For
 Write-Host "  Grafana:      minikube service grafana -n pharmago --url" -ForegroundColor White
 Write-Host "  Kibana:       minikube service kibana -n pharmago --url" -ForegroundColor White
 Write-Host "  Prometheus:   minikube service prometheus -n pharmago --url" -ForegroundColor White
+Write-Host "  Jaeger:       minikube service jaeger -n pharmago --url" -ForegroundColor White
 
