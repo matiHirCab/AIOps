@@ -32,6 +32,12 @@ spec:
         env:
         - name: COLLECTOR_OTLP_ENABLED
           value: "true"
+        - name: SPAN_STORAGE_TYPE
+          value: "elasticsearch"
+        - name: ES_SERVER_URLS
+          value: "http://elasticsearch:9200"
+        - name: ES_INDEX_PREFIX
+          value: "jaeger"
         resources:
           requests:
             memory: "128Mi"
