@@ -55,16 +55,37 @@ Write-Host "`n5. Creando StorageClass y PersistentVolumes..." -ForegroundColor Y
 kubectl apply -f persistent-volumes\storage-class.yaml
 if ($LASTEXITCODE -ne 0) { exit 1 }
 
-# Eliminar PVs existentes en estado Released para recrearlos
-Write-Host "   Limpiando PVs existentes..." -ForegroundColor Cyan
-kubectl delete pv sql-pv elasticsearch-pv prometheus-pv grafana-pv --ignore-not-found=true
+# Eliminar solo PVs huerfanos. No borrar PVs Bound: kubectl delete puede
+# quedar bloqueado porque todavia estan asociados a PVCs activos.
+Write-Host "   Limpiando PVs huerfanos (Released/Failed)..." -ForegroundColor Cyan
+$pvManifests = @{
+    "sql-pv" = "persistent-volumes\sql-pv.yaml"
+    "elasticsearch-pv" = "persistent-volumes\elasticsearch-pv.yaml"
+    "prometheus-pv" = "persistent-volumes\prometheus-pv.yaml"
+    "grafana-pv" = "persistent-volumes\grafana-pv.yaml"
+}
+$pvNames = $pvManifests.Keys
+$pvsToApply = @()
+foreach ($pv in $pvNames) {
+    $phase = kubectl get pv $pv -o jsonpath='{.status.phase}' 2>$null
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($phase)) {
+        $pvsToApply += $pv
+        continue
+    }
+
+    if ($phase -eq "Released" -or $phase -eq "Failed") {
+        kubectl delete pv $pv --ignore-not-found=true 2>$null
+        $pvsToApply += $pv
+    } else {
+        Write-Host "   Conservando $pv ($phase)" -ForegroundColor Gray
+    }
+}
 Start-Sleep -Seconds 2
 
-kubectl apply -f persistent-volumes\sql-pv.yaml
-kubectl apply -f persistent-volumes\elasticsearch-pv.yaml
-kubectl apply -f persistent-volumes\prometheus-pv.yaml
-kubectl apply -f persistent-volumes\grafana-pv.yaml
-if ($LASTEXITCODE -ne 0) { exit 1 }
+foreach ($pv in $pvsToApply) {
+    kubectl apply -f $pvManifests[$pv]
+    if ($LASTEXITCODE -ne 0) { exit 1 }
+}
 
 Write-Host "`n6. Desplegando base de datos..." -ForegroundColor Yellow
 kubectl apply -f services\ops\db-service.yaml
@@ -72,23 +93,12 @@ kubectl apply -f deployments\ops\db-deployment.yaml
 if ($LASTEXITCODE -ne 0) { exit 1 }
 
 Write-Host "`n   Esperando a que la base de datos esté lista..." -ForegroundColor Yellow
-# Esperar a que el pod esté Ready
-$timeout = 0
-$maxTimeout = 300
-do {
-    $podReady = kubectl get pod -l app=pharmago-db -n pharmago -o jsonpath='{.items[0].status.conditions[?(@.type=="Ready")].status}' 2>&1
-    if ($podReady -eq "True") {
-        Write-Host "   Base de datos lista!" -ForegroundColor Green
-        break
-    }
-    Start-Sleep -Seconds 5
-    $timeout += 5
-    if ($timeout -ge $maxTimeout) {
-        Write-Host "   Timeout esperando la base de datos. Continuando..." -ForegroundColor Yellow
-        break
-    }
-    Write-Host "   Esperando... ($timeout/$maxTimeout segundos)" -ForegroundColor Cyan
-} while ($true)
+kubectl wait --for=condition=available deployment/pharmago-db -n pharmago --timeout=300s
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "   Base de datos lista!" -ForegroundColor Green
+} else {
+    Write-Host "   Timeout esperando la base de datos. Continuando..." -ForegroundColor Yellow
+}
 
 Write-Host "`n7. Desplegando servicios de observabilidad..." -ForegroundColor Yellow
 # Elasticsearch primero
@@ -97,22 +107,12 @@ kubectl apply -f deployments\ops\elasticsearch-deployment.yaml
 
 # Esperar a que Elasticsearch esté listo
 Write-Host "   Esperando a que Elasticsearch esté listo..." -ForegroundColor Yellow
-$timeout = 0
-$maxTimeout = 300
-do {
-    $podReady = kubectl get pod -l app=elasticsearch -n pharmago -o jsonpath='{.items[0].status.conditions[?(@.type=="Ready")].status}' 2>&1
-    if ($podReady -eq "True") {
-        Write-Host "   Elasticsearch listo!" -ForegroundColor Green
-        break
-    }
-    Start-Sleep -Seconds 5
-    $timeout += 5
-    if ($timeout -ge $maxTimeout) {
-        Write-Host "   Timeout esperando Elasticsearch. Continuando..." -ForegroundColor Yellow
-        break
-    }
-    Write-Host "   Esperando... ($timeout/$maxTimeout segundos)" -ForegroundColor Cyan
-} while ($true)
+kubectl wait --for=condition=available deployment/elasticsearch -n pharmago --timeout=300s
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "   Elasticsearch listo!" -ForegroundColor Green
+} else {
+    Write-Host "   Timeout esperando Elasticsearch. Continuando..." -ForegroundColor Yellow
+}
 
 # Resto de servicios ops
 kubectl apply -f services\ops\otel-collector-service.yaml
