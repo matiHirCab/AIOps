@@ -230,6 +230,18 @@ Luego aplica los cambios:
 kubectl apply -f deployments/<component>/<deployment>.yaml
 ```
 
+## Despliegues seguros
+
+Los componentes de aplicacion que atienden trafico (`pharmago-ui`, `pharmago-api-gateway`, `pharmago-users-service` y `pharmago-pharmacy-service`) usan `Deployment` con estrategia `RollingUpdate`, multiples replicas y health checks.
+
+La estrategia esta configurada con `maxUnavailable: 0` y `maxSurge: 1`. Esto permite crear una replica nueva antes de retirar una replica anterior, evitando reducir la disponibilidad durante una actualizacion.
+
+Las `readinessProbe` existentes aseguran que Kubernetes solo envie trafico a pods que ya estan listos. Si una nueva version falla las verificaciones de salud, no queda disponible para recibir trafico y se puede volver a la version anterior con:
+
+```bash
+kubectl rollout undo deployment/<deployment-name> -n pharmago
+```
+
 ## Troubleshooting
 
 ### Pods no se inician (Pending / telemetría)
