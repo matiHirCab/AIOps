@@ -8,6 +8,7 @@ using PharmaGo.ApiGateway.Middleware;
 using Instrumentation;
 using InstrumentationInterface;
 using Yarp.ReverseProxy.Transforms;
+using System.Diagnostics;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -41,6 +42,22 @@ builder.Services.AddReverseProxy()
                 context.ProxyRequest.Headers.Remove("X-Correlation-ID");
                 context.ProxyRequest.Headers.TryAddWithoutValidation("X-Correlation-ID", correlationId);
             }
+
+            var activity = Activity.Current;
+            if (activity != null)
+            {
+                context.ProxyRequest.Headers.Remove("traceparent");
+                context.ProxyRequest.Headers.TryAddWithoutValidation(
+                    "traceparent",
+                    $"00-{activity.TraceId}-{activity.SpanId}-{(activity.Recorded ? "01" : "00")}");
+
+                if (activity.TraceStateString != null)
+                {
+                    context.ProxyRequest.Headers.Remove("tracestate");
+                    context.ProxyRequest.Headers.TryAddWithoutValidation("tracestate", activity.TraceStateString);
+                }
+            }
+
             return default;
         });
     });

@@ -28,7 +28,7 @@ spec:
                 values: [backend, all]
       containers:
       - name: pharmago-api-gateway
-        image: pharmago-api-gateway:latest
+        image: pharmago-api-gateway:v2
         imagePullPolicy: Never
         ports:
         - containerPort: 80
