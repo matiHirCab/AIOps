@@ -13,6 +13,16 @@ La aplicación se ejecuta en un único nodo (minikube) con todos los componentes
 
 **Requisito de memoria**: El nodo debe tener al menos 5-6GB de RAM para soportar Elasticsearch (1.5Gi), Kibana (2Gi), SQL Server Express (1.5Gi) y el resto de servicios.
 
+## Limites de recursos
+
+Los contenedores tienen configurados resource requests y resource limits. Esta estrategia aplica a los servicios de aplicacion, la base de datos y los componentes de telemetria y observabilidad.
+
+Los requests permiten reservar una cantidad minima de CPU y memoria para cada servicio. Esto ayuda a Kubernetes a tomar decisiones de scheduling y evita desplegar pods en nodos que no cuentan con recursos suficientes.
+
+Los limits definen el consumo maximo permitido para cada contenedor. De esta forma se reduce el impacto de una falla o sobrecarga en un microservicio, evitando que un unico pod consuma todos los recursos disponibles del nodo.
+
+Esta estrategia ayuda a contener incidentes como consumo excesivo de CPU, consumo excesivo de memoria, degradacion del nodo e impacto sobre otros pods del cluster.
+
 ## Prerrequisitos
 
 1. **Minikube** instalado y configurado
@@ -218,6 +228,18 @@ Luego aplica los cambios:
 
 ```bash
 kubectl apply -f deployments/<component>/<deployment>.yaml
+```
+
+## Despliegues seguros
+
+Los componentes de aplicacion que atienden trafico (`pharmago-ui`, `pharmago-api-gateway`, `pharmago-users-service` y `pharmago-pharmacy-service`) usan `Deployment` con estrategia `RollingUpdate`, multiples replicas y health checks.
+
+La estrategia esta configurada con `maxUnavailable: 0` y `maxSurge: 1`. Esto permite crear una replica nueva antes de retirar una replica anterior, evitando reducir la disponibilidad durante una actualizacion.
+
+Las `readinessProbe` existentes aseguran que Kubernetes solo envie trafico a pods que ya estan listos. Si una nueva version falla las verificaciones de salud, no queda disponible para recibir trafico y se puede volver a la version anterior con:
+
+```bash
+kubectl rollout undo deployment/<deployment-name> -n pharmago
 ```
 
 ## Troubleshooting

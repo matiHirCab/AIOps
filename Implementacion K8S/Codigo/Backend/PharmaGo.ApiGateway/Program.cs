@@ -12,8 +12,12 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddMemoryCache();
 
 var rateLimitMode = builder.Configuration["RateLimiting:Mode"] ?? "IP";
+var rateLimitModes = rateLimitMode
+    .Split(new[] { '+', ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+var ipRateLimitingEnabled = rateLimitModes.Contains("IP", StringComparer.OrdinalIgnoreCase);
+var userRateLimitingEnabled = rateLimitModes.Contains("User", StringComparer.OrdinalIgnoreCase);
 
-if (rateLimitMode.Equals("IP", StringComparison.OrdinalIgnoreCase))
+if (ipRateLimitingEnabled)
 {
     // Rate limiting por IP (útil para endpoints públicos)
     builder.Services.Configure<IpRateLimitOptions>(builder.Configuration.GetSection("IpRateLimiting"));
@@ -40,6 +44,7 @@ builder.Services.AddReverseProxy()
     });
 
 builder.Services.AddSingleton<ICustomMetrics, CustomMetrics>();
+builder.Services.AddHealthChecks();
 
 builder.Services.AddOpenTelemetry()
     .WithMetrics(metricsBuilder => 
@@ -79,17 +84,19 @@ if (app.Environment.IsDevelopment())
 
 app.UseMetricsMiddleware();
 
-if (rateLimitMode.Equals("IP", StringComparison.OrdinalIgnoreCase))
+if (ipRateLimitingEnabled)
 {
     app.UseIpRateLimiting();
 }
-else if (rateLimitMode.Equals("User", StringComparison.OrdinalIgnoreCase))
+
+if (userRateLimitingEnabled)
 {
     app.UseUserRateLimit();
 }
 
 app.UseAuthorization();
 
+app.MapHealthChecks("/health");
 app.MapReverseProxy();
 app.MapPrometheusScrapingEndpoint();
 
