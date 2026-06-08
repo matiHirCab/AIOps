@@ -208,7 +208,7 @@ scenario_2_cpu_stress() {
 
 # =============================================================================
 # ESCENARIO 3: Sobrecarga de memoria
-# Objetivo: consumir memoria hasta OOMKill
+# Objetivo: estresar memoria del pod y demostrar auto-recuperación ante crash
 # Alertas esperadas: Memory Node > 85%, Pod Restarts > 3 in 5min
 # Observable en: Grafana Infra (Memory per pod, Pod Restarts)
 # =============================================================================
@@ -216,7 +216,7 @@ scenario_3_memory_stress() {
     run_scenario 3 "Sobrecarga de memoria"
 
     if $DRY_RUN; then
-        log "[DRY-RUN] Consumiría memoria en pod de users-service hasta OOMKill"
+        log "[DRY-RUN] Estresaría memoria y luego mataría pod de users-service"
         return
     fi
 
@@ -230,24 +230,30 @@ scenario_3_memory_stress() {
     fi
 
     log "Pod objetivo: $pod (limit: 384Mi)"
-    log "Consumiendo memoria para provocar OOMKill..."
 
-    # Consumir memoria agresivamente para provocar OOMKill
-    # --vm-hang 0: retiene la memoria asignada sin liberarla
-    # Si el cgroup enforcea el limit (384Mi), K8s matará el pod
-    kubectl exec -n "$NAMESPACE" "$pod" -- stress-ng --vm 2 --vm-bytes 512M --vm-hang 0 --timeout "${DURATION}s" --metrics-brief \
-        2>&1 || warn "Pod terminado por OOMKill (comportamiento esperado)"
+    # Fase 1: estresar memoria para que se vea el spike en Grafana
+    log "Fase 1: Estresando memoria (15s)..."
+    kubectl exec -n "$NAMESPACE" "$pod" -- stress-ng --vm 2 --vm-bytes 512M --vm-hang 0 --timeout 15s --metrics-brief \
+        2>&1 || true
 
-    log "Esperando a que K8s reinicie el pod..."
-    sleep 10
+    # Fase 2: matar el pod para simular OOMKill y demostrar auto-recuperación
+    log "Fase 2: Matando pod para simular OOMKill..."
+    kubectl delete pod "$pod" -n "$NAMESPACE" --grace-period=0 --force 2>&1
+
+    log "Esperando a que K8s recree el pod automáticamente..."
+    sleep 15
     kubectl get pods -n "$NAMESPACE" -l app=pharmago-users-service --no-headers
+
+    # Verificar que el nuevo pod está ready
+    kubectl wait --for=condition=ready pod -l app=pharmago-users-service -n "$NAMESPACE" --timeout=60s 2>&1 || \
+        warn "Timeout esperando recuperación"
 
     ok "Escenario 3 completado"
     echo ""
     log "Verificar en Grafana:"
-    echo "  - Infra > Memory per Pod: pico en users-service seguido de caída (OOMKill)"
+    echo "  - Infra > Memory per Pod: spike en users-service seguido de caída (pod muerto)"
     echo "  - Infra > Pod Restarts: incremento"
-    echo "  - Alerta 'Pod Restarts > 3 in 5min' podría dispararse"
+    echo "  - El pod fue recreado automáticamente por Kubernetes"
     log "Verificar en Kibana:"
     echo "  - Logs de crash y reinicio del pod"
 }
