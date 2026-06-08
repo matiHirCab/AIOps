@@ -208,15 +208,20 @@ scenario_2_cpu_stress() {
 
 # =============================================================================
 # ESCENARIO 3: Sobrecarga de memoria
-# Objetivo: estresar memoria del pod y demostrar auto-recuperación ante crash
+# Objetivo: provocar OOMKill y demostrar auto-recuperación
 # Alertas esperadas: Memory Node > 85%, Pod Restarts > 3 in 5min
 # Observable en: Grafana Infra (Memory per pod, Pod Restarts)
+#
+# En Windows (WSL2) el OOMKill ocurre naturalmente porque los cgroups se
+# enforcean correctamente. En macOS Docker Desktop no enforcea memory limits,
+# por lo que si stress-ng no provoca el OOMKill, el script mata el pod
+# manualmente como fallback.
 # =============================================================================
 scenario_3_memory_stress() {
     run_scenario 3 "Sobrecarga de memoria"
 
     if $DRY_RUN; then
-        log "[DRY-RUN] Estresaría memoria y luego mataría pod de users-service"
+        log "[DRY-RUN] Estresaría memoria del pod de users-service hasta OOMKill"
         return
     fi
 
@@ -230,15 +235,28 @@ scenario_3_memory_stress() {
     fi
 
     log "Pod objetivo: $pod (limit: 384Mi)"
+    log "Estresando memoria para provocar OOMKill..."
 
-    # Fase 1: estresar memoria para que se vea el spike en Grafana
-    log "Fase 1: Estresando memoria (15s)..."
-    kubectl exec -n "$NAMESPACE" "$pod" -- stress-ng --vm 2 --vm-bytes 512M --vm-hang 0 --timeout 15s --metrics-brief \
+    # Intentar provocar OOMKill real con stress-ng
+    # --vm-keep: no libera la memoria entre iteraciones
+    # En WSL2/Linux esto debería exceder el memory limit y provocar OOMKill
+    kubectl exec -n "$NAMESPACE" "$pod" -- stress-ng --vm 2 --vm-bytes 512M --vm-keep --timeout "${DURATION}s" --metrics-brief \
         2>&1 || true
 
-    # Fase 2: matar el pod para simular OOMKill y demostrar auto-recuperación
-    log "Fase 2: Matando pod para simular OOMKill..."
-    kubectl delete pod "$pod" -n "$NAMESPACE" --grace-period=0 --force 2>&1
+    sleep 5
+
+    # Verificar si el pod fue matado por OOMKill
+    local reason
+    reason=$(kubectl get pod "$pod" -n "$NAMESPACE" -o jsonpath='{.status.containerStatuses[0].lastState.terminated.reason}' 2>/dev/null)
+
+    if [ "$reason" = "OOMKilled" ]; then
+        ok "OOMKill real detectado — Kubernetes mató el pod por exceder el memory limit"
+    else
+        # Fallback para macOS: Docker Desktop no enforcea memory limits via cgroups
+        warn "OOMKill no ocurrió (normal en Docker Desktop macOS)"
+        log "Fallback: matando pod manualmente para demostrar auto-recuperación..."
+        kubectl delete pod "$pod" -n "$NAMESPACE" --grace-period=0 --force 2>&1
+    fi
 
     log "Esperando a que K8s recree el pod automáticamente..."
     sleep 15
@@ -251,7 +269,7 @@ scenario_3_memory_stress() {
     ok "Escenario 3 completado"
     echo ""
     log "Verificar en Grafana:"
-    echo "  - Infra > Memory per Pod: spike en users-service seguido de caída (pod muerto)"
+    echo "  - Infra > Memory per Pod: spike en users-service seguido de caída"
     echo "  - Infra > Pod Restarts: incremento"
     echo "  - El pod fue recreado automáticamente por Kubernetes"
     log "Verificar en Kibana:"
