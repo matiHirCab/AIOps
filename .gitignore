@@ -62,3 +62,5 @@ docker-compose.override.yml
 lab_isolation_forest/ejercicios_15.md
 lab_isolation_forest/.venv/
 lab_isolation_forest/data/
+# === Notas personales (no compartir) ===
+notas-personales/

@@ -1,11 +1,14 @@
 using System.Diagnostics.CodeAnalysis;
 using OpenTelemetry.Metrics;
+using OpenTelemetry.Trace;
 using OpenTelemetry.Resources;
+using OpenTelemetry.Exporter;
 using AspNetCoreRateLimit;
 using PharmaGo.ApiGateway.Middleware;
 using Instrumentation;
 using InstrumentationInterface;
 using Yarp.ReverseProxy.Transforms;
+using System.Diagnostics;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -39,6 +42,22 @@ builder.Services.AddReverseProxy()
                 context.ProxyRequest.Headers.Remove("X-Correlation-ID");
                 context.ProxyRequest.Headers.TryAddWithoutValidation("X-Correlation-ID", correlationId);
             }
+
+            var activity = Activity.Current;
+            if (activity != null)
+            {
+                context.ProxyRequest.Headers.Remove("traceparent");
+                context.ProxyRequest.Headers.TryAddWithoutValidation(
+                    "traceparent",
+                    $"00-{activity.TraceId}-{activity.SpanId}-{(activity.Recorded ? "01" : "00")}");
+
+                if (activity.TraceStateString != null)
+                {
+                    context.ProxyRequest.Headers.Remove("tracestate");
+                    context.ProxyRequest.Headers.TryAddWithoutValidation("tracestate", activity.TraceStateString);
+                }
+            }
+
             return default;
         });
     });
@@ -46,15 +65,29 @@ builder.Services.AddReverseProxy()
 builder.Services.AddSingleton<ICustomMetrics, CustomMetrics>();
 builder.Services.AddHealthChecks();
 
+var gatewayResource = ResourceBuilder.CreateDefault().AddService("PharmaGo.ApiGateway");
+
 builder.Services.AddOpenTelemetry()
-    .WithMetrics(metricsBuilder => 
+    .WithMetrics(metricsBuilder =>
     {
         metricsBuilder
-            .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService("PharmaGo.ApiGateway"))
+            .SetResourceBuilder(gatewayResource)
             .AddAspNetCoreInstrumentation()
             .AddHttpClientInstrumentation()
             .AddMeter("PharmaGo.CustomMetrics")
             .AddPrometheusExporter();
+    })
+    .WithTracing(tracerBuilder =>
+    {
+        tracerBuilder
+            .SetResourceBuilder(gatewayResource)
+            .AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation()
+            .AddOtlpExporter(options =>
+            {
+                options.Endpoint = new Uri("http://otlp-collector:4317");
+                options.Protocol = OtlpExportProtocol.Grpc;
+            });
     });
 
 builder.Services.AddEndpointsApiExplorer();

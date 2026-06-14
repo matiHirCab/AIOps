@@ -31,6 +31,8 @@ FROM build AS publish
 RUN dotnet publish "PharmaGo.UsersService.csproj" -c Release -o /app/publish
 
 FROM base AS final
+# stress-ng para pruebas de ingeniería del caos (CPU/memoria)
+RUN apt-get update && apt-get install -y --no-install-recommends stress-ng && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=publish /app/publish .
 ENTRYPOINT ["dotnet", "PharmaGo.UsersService.dll"]

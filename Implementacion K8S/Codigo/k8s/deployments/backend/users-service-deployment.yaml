@@ -28,7 +28,7 @@ spec:
                 values: [backend, all]
       containers:
       - name: pharmago-users-service
-        image: pharmago-users-service:latest
+        image: pharmago-users-service:v2
         imagePullPolicy: Never
         ports:
         - containerPort: 80

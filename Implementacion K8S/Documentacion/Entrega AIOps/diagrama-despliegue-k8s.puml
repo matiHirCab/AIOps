@@ -29,8 +29,10 @@ node "<<Kubernetes Cluster>>\nPharmaGo" as cluster {
     rectangle "<<Deployment>>\n**prometheus**\nPV: 10Gi" as prom #F8BBD0
     rectangle "<<Deployment>>\n**grafana**\nPV: 5Gi" as grafana #F8BBD0
     rectangle "<<Deployment>>\n**otlp-collector**" as otel #F8BBD0
+    rectangle "<<Deployment>>\n**jaeger**\nall-in-one v1.54" as jaeger #F8BBD0
     rectangle "<<Deployment>>\n**elasticsearch**\nPV: 10Gi" as elastic #F8BBD0
     rectangle "<<Deployment>>\n**kibana**" as kibana #F8BBD0
+    rectangle "<<Deployment>>\n**kube-state-metrics**" as ksm #F8BBD0
   }
 
   node "<<DaemonSets>>\nTodos los nodos" as allNodes #FFF9C4 {
@@ -43,6 +45,7 @@ node "<<Kubernetes Cluster>>\nPharmaGo" as cluster {
 user -down-> ui : "NodePort :80"
 user -down-> grafana : "NodePort :3000"
 user -down-> kibana : "NodePort :5601"
+user -down-> jaeger : "NodePort :16686"
 
 ' --- Tráfico de aplicación ---
 ui -down-> apigw : "HTTP :80"
@@ -56,10 +59,14 @@ pharmacy -right-> db : "TCP :1433"
 ' --- Telemetría (agrupada) ---
 backendNode -right[#E65100,dotted]-> otel : "gRPC :4317\n(OTLP)"
 
+' --- Traces ---
+otel -down[#E65100,dotted]-> jaeger : "OTLP gRPC :4317\n(traces)"
+
 ' --- Recolección de métricas ---
 prom -left[#C62828,dotted]-> backendNode : "scrape /metrics (:80)"
 prom -down[#C62828,dotted]-> otel : "scrape :8889"
 prom -down[#C62828,dotted]-> nodeexp : "scrape :9100"
+prom -down[#C62828,dotted]-> ksm : "scrape :8080"
 grafana -down-> prom : "HTTP :9090"
 
 ' --- Logs ---

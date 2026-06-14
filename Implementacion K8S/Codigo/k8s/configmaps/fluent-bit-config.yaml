@@ -49,14 +49,31 @@ data:
         K8S-Logging.Parser  On
         K8S-Logging.Exclude  Off
 
-    # When "log" is a single-line JSON object (.NET console JSON), lift Message, Category, LogLevel, etc. to top-level for KQL.
-    # Non-JSON lines (e.g. SQL) are unchanged — no "Message" field, so they do not match Message-based queries.
+    # When "log" is a single-line JSON object (.NET console JSON), lift Message, Category, LogLevel, Scopes.* to top-level for KQL.
+    # Non-JSON lines (startup banners, stack traces, EF SQL fragments, Console.WriteLine, native stderr) do not match this parser
+    # and reach the next filter without Message/LogLevel/Scopes.*.
     [FILTER]
         Name                parser
         Match               kube.*
         Key_Name            log
         Parser              dotnet_console_json
         Reserve_Data        On
+
+    # Backfill non-JSON lines so they remain searchable.
+    # Contract for downstream consumers (Kibana, alerts, dashboards):
+    #   ParseStatus = "raw"          => the pipeline INTENTIONALLY left LogLevel and Scopes.correlation_id null.
+    #                                   The application did not emit a structured record for this line.
+    #                                   Message has been backfilled from the raw "log" string so the text is still
+    #                                   visible in Discover, but it is NOT a real ILogger Message.
+    #   ParseStatus absent           => fully structured ILogger record. LogLevel/Message/Scopes.* are authoritative.
+    # We deliberately DO NOT guess a LogLevel here. Hardcoding Information would bury stack traces under the wrong
+    # severity and break LogLevel-based alerts. Severity for raw lines is unknown by design.
+    [FILTER]
+        Name                modify
+        Match               kube.*
+        Condition           Key_does_not_exist Message
+        Copy                log Message
+        Add                 ParseStatus raw
 
   output-elasticsearch.conf: |
     [OUTPUT]

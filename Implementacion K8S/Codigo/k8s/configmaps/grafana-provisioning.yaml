@@ -28,4 +28,17 @@ data:
         editable: true
         options:
           path: /etc/grafana/provisioning/dashboards
+  alerting.yml: |
+    apiVersion: 1
+    contactPoints:
+      - orgId: 1
+        name: default
+        receivers:
+          - uid: default-email
+            type: email
+            settings:
+              addresses: admin@pharmago.local
+    policies:
+      - orgId: 1
+        receiver: default
 

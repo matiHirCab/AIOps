@@ -1,0 +1,22 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: chaos-block-backend
+  namespace: pharmago
+spec:
+  podSelector:
+    matchLabels:
+      app: pharmago-api-gateway
+  policyTypes:
+  - Egress
+  egress:
+  # Bloquea tráfico del API Gateway hacia los servicios backend.
+  # Solo permite DNS para que el pod no entre en crash inmediato
+  # por no resolver nombres, sino que falle al conectar.
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
