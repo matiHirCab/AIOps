@@ -58,5 +58,9 @@ k8s/.port-forward.pids
 .docker/
 docker-compose.override.yml
 
+# === Lab isolation forest ===
+lab_isolation_forest/ejercicios_15.md
+lab_isolation_forest/.venv/
+lab_isolation_forest/data/
 # === Notas personales (no compartir) ===
 notas-personales/
