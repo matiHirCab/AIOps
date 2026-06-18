@@ -6,3 +6,8 @@ rules:
   - apiGroups: [""]
     resources: ["nodes", "nodes/proxy"]
     verbs: ["get", "list"]
+  # Necesario para descubrir cada pod detrás de los Services (scraping por pod,
+  # no por ClusterIP balanceado). Sin esto los counters por-pod no se agregan bien.
+  - apiGroups: [""]
+    resources: ["services", "endpoints", "pods"]
+    verbs: ["get", "list", "watch"]

@@ -48,6 +48,7 @@ kubectl apply -f configmaps\otel-collector-config.yaml
 kubectl apply -f configmaps\grafana-provisioning.yaml
 kubectl apply -f configmaps\grafana-dashboards.yaml
 kubectl apply -f configmaps\grafana-dashboard-infra.yaml
+kubectl apply -f configmaps\grafana-alerting.yaml
 kubectl apply -f configmaps\fluent-bit-config.yaml
 if ($LASTEXITCODE -ne 0) { exit 1 }
 
@@ -55,16 +56,37 @@ Write-Host "`n5. Creando StorageClass y PersistentVolumes..." -ForegroundColor Y
 kubectl apply -f persistent-volumes\storage-class.yaml
 if ($LASTEXITCODE -ne 0) { exit 1 }
 
-# Eliminar PVs existentes en estado Released para recrearlos
-Write-Host "   Limpiando PVs existentes..." -ForegroundColor Cyan
-kubectl delete pv sql-pv elasticsearch-pv prometheus-pv grafana-pv --ignore-not-found=true
+# Eliminar solo PVs huerfanos. No borrar PVs Bound: kubectl delete puede
+# quedar bloqueado porque todavia estan asociados a PVCs activos.
+Write-Host "   Limpiando PVs huerfanos (Released/Failed)..." -ForegroundColor Cyan
+$pvManifests = @{
+    "sql-pv" = "persistent-volumes\sql-pv.yaml"
+    "elasticsearch-pv" = "persistent-volumes\elasticsearch-pv.yaml"
+    "prometheus-pv" = "persistent-volumes\prometheus-pv.yaml"
+    "grafana-pv" = "persistent-volumes\grafana-pv.yaml"
+}
+$pvNames = $pvManifests.Keys
+$pvsToApply = @()
+foreach ($pv in $pvNames) {
+    $phase = kubectl get pv $pv -o jsonpath='{.status.phase}' 2>$null
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($phase)) {
+        $pvsToApply += $pv
+        continue
+    }
+
+    if ($phase -eq "Released" -or $phase -eq "Failed") {
+        kubectl delete pv $pv --ignore-not-found=true 2>$null
+        $pvsToApply += $pv
+    } else {
+        Write-Host "   Conservando $pv ($phase)" -ForegroundColor Gray
+    }
+}
 Start-Sleep -Seconds 2
 
-kubectl apply -f persistent-volumes\sql-pv.yaml
-kubectl apply -f persistent-volumes\elasticsearch-pv.yaml
-kubectl apply -f persistent-volumes\prometheus-pv.yaml
-kubectl apply -f persistent-volumes\grafana-pv.yaml
-if ($LASTEXITCODE -ne 0) { exit 1 }
+foreach ($pv in $pvsToApply) {
+    kubectl apply -f $pvManifests[$pv]
+    if ($LASTEXITCODE -ne 0) { exit 1 }
+}
 
 Write-Host "`n6. Desplegando base de datos..." -ForegroundColor Yellow
 kubectl apply -f services\ops\db-service.yaml
@@ -72,23 +94,12 @@ kubectl apply -f deployments\ops\db-deployment.yaml
 if ($LASTEXITCODE -ne 0) { exit 1 }
 
 Write-Host "`n   Esperando a que la base de datos esté lista..." -ForegroundColor Yellow
-# Esperar a que el pod esté Ready
-$timeout = 0
-$maxTimeout = 300
-do {
-    $podReady = kubectl get pod -l app=pharmago-db -n pharmago -o jsonpath='{.items[0].status.conditions[?(@.type=="Ready")].status}' 2>&1
-    if ($podReady -eq "True") {
-        Write-Host "   Base de datos lista!" -ForegroundColor Green
-        break
-    }
-    Start-Sleep -Seconds 5
-    $timeout += 5
-    if ($timeout -ge $maxTimeout) {
-        Write-Host "   Timeout esperando la base de datos. Continuando..." -ForegroundColor Yellow
-        break
-    }
-    Write-Host "   Esperando... ($timeout/$maxTimeout segundos)" -ForegroundColor Cyan
-} while ($true)
+kubectl wait --for=condition=available deployment/pharmago-db -n pharmago --timeout=300s
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "   Base de datos lista!" -ForegroundColor Green
+} else {
+    Write-Host "   Timeout esperando la base de datos. Continuando..." -ForegroundColor Yellow
+}
 
 Write-Host "`n7. Desplegando servicios de observabilidad..." -ForegroundColor Yellow
 # Elasticsearch primero
@@ -97,26 +108,30 @@ kubectl apply -f deployments\ops\elasticsearch-deployment.yaml
 
 # Esperar a que Elasticsearch esté listo
 Write-Host "   Esperando a que Elasticsearch esté listo..." -ForegroundColor Yellow
-$timeout = 0
-$maxTimeout = 300
-do {
-    $podReady = kubectl get pod -l app=elasticsearch -n pharmago -o jsonpath='{.items[0].status.conditions[?(@.type=="Ready")].status}' 2>&1
-    if ($podReady -eq "True") {
-        Write-Host "   Elasticsearch listo!" -ForegroundColor Green
-        break
-    }
-    Start-Sleep -Seconds 5
-    $timeout += 5
-    if ($timeout -ge $maxTimeout) {
-        Write-Host "   Timeout esperando Elasticsearch. Continuando..." -ForegroundColor Yellow
-        break
-    }
-    Write-Host "   Esperando... ($timeout/$maxTimeout segundos)" -ForegroundColor Cyan
-} while ($true)
+kubectl wait --for=condition=available deployment/elasticsearch -n pharmago --timeout=300s
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "   Elasticsearch listo!" -ForegroundColor Green
+} else {
+    Write-Host "   Timeout esperando Elasticsearch. Continuando..." -ForegroundColor Yellow
+}
 
-# Resto de servicios ops
+# Jaeger (backend de trazas): debe estar antes del OTel collector,
+# que exporta trazas a jaeger:4317.
+kubectl apply -f services\ops\jaeger-service.yaml
+kubectl apply -f deployments\ops\jaeger-deployment.yaml
+Write-Host "   Jaeger desplegado (UI en puerto 16686)." -ForegroundColor Cyan
+
+# OTel collector
 kubectl apply -f services\ops\otel-collector-service.yaml
 kubectl apply -f deployments\ops\otel-collector-deployment.yaml
+
+# kube-state-metrics: métricas a nivel de pod/deployment (restarts, ready, ...).
+# Se aplica antes de Prometheus para que el job 'kube-state-metrics' tenga target.
+kubectl apply -f deployments\ops\kube-state-metrics-serviceaccount.yaml
+kubectl apply -f deployments\ops\kube-state-metrics-clusterrole.yaml
+kubectl apply -f deployments\ops\kube-state-metrics-clusterrolebinding.yaml
+kubectl apply -f deployments\ops\kube-state-metrics-deployment.yaml
+Write-Host "   kube-state-metrics desplegado (servicio en puerto 8080)." -ForegroundColor Cyan
 
 kubectl apply -f deployments\ops\prometheus-serviceaccount.yaml
 kubectl apply -f deployments\ops\prometheus-clusterrole.yaml
@@ -126,8 +141,14 @@ kubectl apply -f deployments\ops\prometheus-deployment.yaml
 kubectl apply -f services\ops\node-exporter-service.yaml
 kubectl apply -f deployments\ops\node-exporter-daemonset.yaml
 
+# Grafana: el ConfigMap grafana-alerting ya fue aplicado en el paso 4,
+# por lo que las reglas se montan al iniciar el pod.
 kubectl apply -f services\ops\grafana-service.yaml
 kubectl apply -f deployments\ops\grafana-deployment.yaml
+
+# Si Grafana ya estaba corriendo en un despliegue anterior, reiniciar para que
+# recargue las reglas de alerting provisionadas.
+kubectl rollout restart deployment/grafana -n pharmago 2>$null
 
 kubectl apply -f services\ops\kibana-service.yaml
 kubectl apply -f deployments\ops\kibana-deployment.yaml
@@ -161,4 +182,5 @@ Write-Host "  Frontend:     minikube service pharmago-ui -n pharmago --url" -For
 Write-Host "  Grafana:      minikube service grafana -n pharmago --url" -ForegroundColor White
 Write-Host "  Kibana:       minikube service kibana -n pharmago --url" -ForegroundColor White
 Write-Host "  Prometheus:   minikube service prometheus -n pharmago --url" -ForegroundColor White
+Write-Host "  Jaeger:       minikube service jaeger -n pharmago --url" -ForegroundColor White
 

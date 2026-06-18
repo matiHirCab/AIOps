@@ -28,16 +28,16 @@ echo "Construyendo imágenes de backend..."
 cd "$CODE_DIR/Backend"
 
 echo "  - pharmago-users-service..."
-docker build -f PharmaGo.UsersService/Dockerfile -t pharmago-users-service:latest .
-minikube image load pharmago-users-service:latest
+docker build -f PharmaGo.UsersService/Dockerfile -t pharmago-users-service:v2 .
+minikube image load pharmago-users-service:v2
 
 echo "  - pharmago-pharmacy-service..."
-docker build -f PharmaGo.PharmacyService/Dockerfile -t pharmago-pharmacy-service:latest .
-minikube image load pharmago-pharmacy-service:latest
+docker build -f PharmaGo.PharmacyService/Dockerfile -t pharmago-pharmacy-service:v2 .
+minikube image load pharmago-pharmacy-service:v2
 
 echo "  - pharmago-api-gateway..."
-docker build -f PharmaGo.ApiGateway/Dockerfile -t pharmago-api-gateway:latest .
-minikube image load pharmago-api-gateway:latest
+docker build -f PharmaGo.ApiGateway/Dockerfile -t pharmago-api-gateway:v2 .
+minikube image load pharmago-api-gateway:v2
 
 echo ""
 echo "Construyendo imagen de frontend..."

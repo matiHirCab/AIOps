@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using OpenTelemetry.Metrics;
+using OpenTelemetry.Trace;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Exporter;
 using System.Diagnostics;
@@ -10,13 +11,25 @@ namespace PharmaGo.PharmacyService.Factory
     {
         public static IServiceCollection AddPharmaGoOpenTelemetryMetrics(this IServiceCollection services, string serviceName = "PharmaGo.PharmacyService")
         {
+            var resourceBuilder = ResourceBuilder.CreateDefault().AddService(serviceName);
+
             services.AddOpenTelemetry()
                     .WithMetrics(metricsBuilder => { metricsBuilder
-                    .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService(serviceName))
+                    .SetResourceBuilder(resourceBuilder)
                     .AddAspNetCoreInstrumentation()
                     .AddHttpClientInstrumentation()
                     .AddMeter("PharmaGo.CustomMetrics")
                     .AddPrometheusExporter()
+                    .AddOtlpExporter(options =>
+                        {
+                            options.Endpoint = new Uri("http://otlp-collector:4317");
+                            options.Protocol = OtlpExportProtocol.Grpc;
+                        });
+                    })
+                    .WithTracing(tracerBuilder => { tracerBuilder
+                    .SetResourceBuilder(resourceBuilder)
+                    .AddAspNetCoreInstrumentation()
+                    .AddHttpClientInstrumentation()
                     .AddOtlpExporter(options =>
                         {
                             options.Endpoint = new Uri("http://otlp-collector:4317");

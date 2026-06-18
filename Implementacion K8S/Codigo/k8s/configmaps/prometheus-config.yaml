@@ -14,25 +14,66 @@ data:
         static_configs:
           - targets: ['otlp-collector:8889']
       
+      # Servicios multi-réplica: se scrapea CADA pod por separado (no el ClusterIP
+      # del Service, que balancearía cada scrape a un pod distinto y mezclaría los
+      # counters por-pod). El instance queda por pod y PromQL agrega con sum().
       - job_name: 'users-service'
         metrics_path: /metrics
-        static_configs:
-          - targets: ['pharmago-users-service:80']
-      
+        kubernetes_sd_configs:
+          - role: endpoints
+            namespaces:
+              names: ['pharmago']
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_service_name]
+            regex: pharmago-users-service
+            action: keep
+          - source_labels: [__meta_kubernetes_endpoint_ready]
+            regex: "true"
+            action: keep
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: instance
+
       - job_name: 'pharmacy-service'
         metrics_path: /metrics
-        static_configs:
-          - targets: ['pharmago-pharmacy-service:80']
-      
+        kubernetes_sd_configs:
+          - role: endpoints
+            namespaces:
+              names: ['pharmago']
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_service_name]
+            regex: pharmago-pharmacy-service
+            action: keep
+          - source_labels: [__meta_kubernetes_endpoint_ready]
+            regex: "true"
+            action: keep
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: instance
+
       - job_name: 'api-gateway'
         metrics_path: /metrics
-        static_configs:
-          - targets: ['pharmago-api-gateway:80']
+        kubernetes_sd_configs:
+          - role: endpoints
+            namespaces:
+              names: ['pharmago']
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_service_name]
+            regex: pharmago-api-gateway
+            action: keep
+          - source_labels: [__meta_kubernetes_endpoint_ready]
+            regex: "true"
+            action: keep
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: instance
 
       - job_name: 'node-exporter'
         metrics_path: /metrics
         static_configs:
           - targets: ['node-exporter:9100']
+
+      - job_name: 'kube-state-metrics'
+        metrics_path: /metrics
+        static_configs:
+          - targets: ['kube-state-metrics:8080']
 
       # cAdvisor: métricas por contenedor/pod (para ver impacto de chaos)
       - job_name: 'kubernetes-cadvisor'

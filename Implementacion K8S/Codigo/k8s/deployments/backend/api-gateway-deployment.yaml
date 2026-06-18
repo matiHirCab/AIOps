@@ -4,7 +4,12 @@ metadata:
   name: pharmago-api-gateway
   namespace: pharmago
 spec:
-  replicas: 1
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   selector:
     matchLabels:
       app: pharmago-api-gateway
@@ -23,7 +28,7 @@ spec:
                 values: [backend, all]
       containers:
       - name: pharmago-api-gateway
-        image: pharmago-api-gateway:latest
+        image: pharmago-api-gateway:v2
         imagePullPolicy: Never
         ports:
         - containerPort: 80
@@ -39,19 +44,22 @@ spec:
             memory: "384Mi"
             cpu: "500m"
         startupProbe:
-          tcpSocket:
+          httpGet:
+            path: /health
             port: 80
           initialDelaySeconds: 15
           periodSeconds: 10
           failureThreshold: 15
         readinessProbe:
-          tcpSocket:
+          httpGet:
+            path: /health
             port: 80
           initialDelaySeconds: 5
           periodSeconds: 10
           timeoutSeconds: 5
         livenessProbe:
-          tcpSocket:
+          httpGet:
+            path: /health
             port: 80
           initialDelaySeconds: 60
           periodSeconds: 30

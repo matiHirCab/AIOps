@@ -9,9 +9,19 @@ La aplicación se ejecuta en un único nodo (minikube) con todos los componentes
 - **Frontend**: pharmago-ui
 - **Backend**: pharmago-api-gateway, pharmago-users-service, pharmago-pharmacy-service
 - **Base de datos**: pharmago-db (SQL Server Express)
-- **Telemetría y observabilidad**: otlp-collector, prometheus, grafana, elasticsearch, kibana, fluent-bit
+- **Telemetría y observabilidad**: otlp-collector, prometheus, grafana (con alerting provisionado), elasticsearch, kibana, fluent-bit, node-exporter, kube-state-metrics, jaeger
 
 **Requisito de memoria**: El nodo debe tener al menos 5-6GB de RAM para soportar Elasticsearch (1.5Gi), Kibana (2Gi), SQL Server Express (1.5Gi) y el resto de servicios.
+
+## Limites de recursos
+
+Los contenedores tienen configurados resource requests y resource limits. Esta estrategia aplica a los servicios de aplicacion, la base de datos y los componentes de telemetria y observabilidad.
+
+Los requests permiten reservar una cantidad minima de CPU y memoria para cada servicio. Esto ayuda a Kubernetes a tomar decisiones de scheduling y evita desplegar pods en nodos que no cuentan con recursos suficientes.
+
+Los limits definen el consumo maximo permitido para cada contenedor. De esta forma se reduce el impacto de una falla o sobrecarga en un microservicio, evitando que un unico pod consuma todos los recursos disponibles del nodo.
+
+Esta estrategia ayuda a contener incidentes como consumo excesivo de CPU, consumo excesivo de memoria, degradacion del nodo e impacto sobre otros pods del cluster.
 
 ## Prerrequisitos
 
@@ -88,6 +98,14 @@ chmod +x apply-k8s.sh
 ./apply-k8s.sh
 ```
 
+El script aplica de forma idempotente todo el stack, incluyendo los componentes de telemetría avanzada:
+
+- **Jaeger** (backend de trazas, UI en `16686`) — el OTel collector exporta trazas a `jaeger:4317`.
+- **kube-state-metrics** (métricas de pods/deployments: restarts, ready, ...) — scrapeado por Prometheus.
+- **ConfigMap `grafana-alerting`** — provee las reglas de alerta de Grafana al arrancar el pod.
+
+No es necesario ejecutar `kubectl apply` manual para ninguno de estos recursos.
+
 ### Opción 2: Despliegue manual
 
 ```bash
@@ -139,6 +157,26 @@ kubectl get pods -n pharmago -o wide
 kubectl get pods -n pharmago -o wide --field-selector spec.nodeName=minikube
 ```
 
+Tras un despliegue exitoso, deben aparecer en `Running` (al menos):
+
+- Aplicación: `pharmago-ui`, `pharmago-api-gateway`, `pharmago-users-service`, `pharmago-pharmacy-service`, `pharmago-db`
+- Observabilidad clásica: `otlp-collector`, `prometheus`, `grafana`, `elasticsearch`, `kibana`, `node-exporter` (DaemonSet), `fluent-bit` (DaemonSet)
+- Telemetría adicional: `jaeger`, `kube-state-metrics`
+
+### Verificar telemetría avanzada
+
+```bash
+# Trazas multi-servicio: generar tráfico y abrir Jaeger UI
+curl http://127.0.0.1:5000/api/pharmacy
+# → http://127.0.0.1:16686 → Service: pharmago-api-gateway → Find traces
+
+# Métricas de pods (restarts, ready) desde kube-state-metrics
+curl -s http://127.0.0.1:9090/api/v1/query?query=kube_pod_container_status_restarts_total | jq .
+
+# Reglas de alerta provisionadas en Grafana (deben ser 5)
+# → http://127.0.0.1:3000 → Alerting → Alert rules → carpeta "PharmaGo Alerts"
+```
+
 ### Ver servicios
 
 ```bash
@@ -175,6 +213,7 @@ Servicios disponibles en:
 - **Prometheus**: http://127.0.0.1:9090
 - **Grafana**: http://127.0.0.1:3000 (admin/admin)
 - **Kibana**: http://127.0.0.1:5601
+- **Jaeger UI**: http://127.0.0.1:16686
 
 Para detener: `./port-forward.sh --stop`
 
@@ -205,6 +244,13 @@ minikube service kibana -n pharmago --url
 minikube service prometheus -n pharmago --url
 ```
 
+### Jaeger
+
+```bash
+minikube service jaeger -n pharmago --url
+# UI de trazas distribuidas (puerto 16686)
+```
+
 ## Configuración de Replicas
 
 Para cambiar el número de réplicas de cualquier componente, edita el archivo de deployment correspondiente:
@@ -218,6 +264,18 @@ Luego aplica los cambios:
 
 ```bash
 kubectl apply -f deployments/<component>/<deployment>.yaml
+```
+
+## Despliegues seguros
+
+Los componentes de aplicacion que atienden trafico (`pharmago-ui`, `pharmago-api-gateway`, `pharmago-users-service` y `pharmago-pharmacy-service`) usan `Deployment` con estrategia `RollingUpdate`, multiples replicas y health checks.
+
+La estrategia esta configurada con `maxUnavailable: 0` y `maxSurge: 1`. Esto permite crear una replica nueva antes de retirar una replica anterior, evitando reducir la disponibilidad durante una actualizacion.
+
+Las `readinessProbe` existentes aseguran que Kubernetes solo envie trafico a pods que ya estan listos. Si una nueva version falla las verificaciones de salud, no queda disponible para recibir trafico y se puede volver a la version anterior con:
+
+```bash
+kubectl rollout undo deployment/<deployment-name> -n pharmago
 ```
 
 ## Troubleshooting
@@ -409,6 +467,9 @@ k8s/
 │   ├── prometheus-config.yaml
 │   ├── otel-collector-config.yaml
 │   ├── grafana-provisioning.yaml
+│   ├── grafana-dashboards.yaml
+│   ├── grafana-dashboard-infra.yaml
+│   ├── grafana-alerting.yaml
 │   └── fluent-bit-config.yaml
 ├── secrets/
 │   └── db-secret.yaml
@@ -428,10 +489,22 @@ k8s/
 │       ├── db-deployment.yaml
 │       ├── otel-collector-deployment.yaml
 │       ├── prometheus-deployment.yaml
+│       ├── prometheus-serviceaccount.yaml
+│       ├── prometheus-clusterrole.yaml
+│       ├── prometheus-clusterrolebinding.yaml
 │       ├── grafana-deployment.yaml
 │       ├── elasticsearch-deployment.yaml
 │       ├── kibana-deployment.yaml
-│       └── fluent-bit-daemonset.yaml
+│       ├── node-exporter-daemonset.yaml
+│       ├── jaeger-deployment.yaml
+│       ├── kube-state-metrics-deployment.yaml
+│       ├── kube-state-metrics-serviceaccount.yaml
+│       ├── kube-state-metrics-clusterrole.yaml
+│       ├── kube-state-metrics-clusterrolebinding.yaml
+│       ├── fluent-bit-daemonset.yaml
+│       ├── fluent-bit-serviceaccount.yaml
+│       ├── fluent-bit-clusterrole.yaml
+│       └── fluent-bit-clusterrolebinding.yaml
 ├── services/
 │   ├── frontend/
 │   │   └── ui-service.yaml
@@ -445,7 +518,9 @@ k8s/
 │       ├── prometheus-service.yaml
 │       ├── grafana-service.yaml
 │       ├── elasticsearch-service.yaml
-│       └── kibana-service.yaml
+│       ├── kibana-service.yaml
+│       ├── node-exporter-service.yaml
+│       └── jaeger-service.yaml
 ├── build-images.sh
 ├── apply-k8s.sh
 ├── cleanup.sh
