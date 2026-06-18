@@ -498,7 +498,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (status_code) (rate(pharmago_http_requests_total_1[5m])) / sum(rate(pharmago_http_requests_total_1[5m])) * 100",
+          "expr": "sum by (status_code) (rate(pharmago_http_requests_total_1[5m])) / ignoring(status_code) group_left sum(rate(pharmago_http_requests_total_1[5m])) * 100",
           "refId": "A",
           "legendFormat": "{{status_code}}",
           "intervalMs": 5000,
@@ -598,7 +598,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (error_type) (rate(pharmago_http_errors_total_1[5m])) / on() sum(rate(pharmago_http_requests_total_1[5m])) * 100",
+          "expr": "sum by (error_type) (rate(pharmago_http_errors_total_1[5m])) / ignoring(error_type) group_left sum(rate(pharmago_http_requests_total_1[5m])) * 100",
           "refId": "A",
           "legendFormat": "{{error_type}}",
           "intervalMs": 5000,
